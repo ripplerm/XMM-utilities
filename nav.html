@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>NAV</title>
+    <script src="ripple-0.7.35-min.js"></script>
+    <script>
+
+
+// =========== configuration ==============================
+
+var RIPPLE_WS = "wss://s1.ripple.com"
+
+var ACCOUNT1 = "raudnGKfTK23YKfnS7ixejHrqGERTYNFXk";
+var ACCOUNT2 = "rajDteRmFXXs8ALEhfPpwMZy7QuW3o7MtE";
+var ACCOUNT3 = "rBwhtkgKgq7cDnMNUAK98LBV1eRXsC9yzs";
+var HOTWALLET = "r4Ta22KkGiHJDykCso3hSaoBPwAMP9NEem";
+var COLDWALLET = "rExAPEZvbkZqYPuNcZ7XEBLENEshsWDQc8";
+
+var ACCOUNTS = [ACCOUNT1, ACCOUNT2, ACCOUNT3, HOTWALLET, COLDWALLET];
+
+var LEDGER = 'validated';  
+
+var RANGE = 'hour';
+
+
+// ========== global varialbes ===============================
+
+var NAV = 0;
+
+var PRICES = {
+      BTC: 580,
+      CNY: 0.160,
+      EUR: 1.353,
+      NZD: 1.153,
+      XAG: 19.55,
+      XAU: 1270
+}
+
+var BTCUSD_PRICE = 580;
+var USDCNY_PRICE = 6.23;
+var USDEUR_PRICE = 0.739;
+var USDNZD_PRICE = 1.153;
+var SILVER_PRICE = 19.55;
+var GOLD_PRICE = 1270;
+
+var RATES = {
+                XRP: 1,
+                BTC: 150000,
+                USD: 240,
+                CNY: 38,
+                XAG: 4500,
+                XMM: 0
+              }
+
+var RATES_UPDATED = {
+                BTC: false,
+                USD: false,
+                CNY: false,
+                EUR: false,
+                NZD: false,
+                XAG: false,
+                XAU: false
+              }
+
+
+var BALANCE = {
+                XRP: 0,
+                BTC: 0,
+                USD: 0,
+                CNY: 0,
+                EUR: 0,
+                NZD: 0,
+                XAG: 0,
+                XAU: 0,
+                XMM: 0
+              }
+
+var BALANCE_UPDATE = {
+                       raudnGKfTK23YKfnS7ixejHrqGERTYNFXk: {
+                         XRP: false,
+                         IOU: false
+                       },
+                       rajDteRmFXXs8ALEhfPpwMZy7QuW3o7MtE: {
+                         XRP: false,
+                         IOU: false                       
+                       },
+                       rBwhtkgKgq7cDnMNUAK98LBV1eRXsC9yzs: {
+                         XRP: false,
+                         IOU: false                         
+                       },
+                       r4Ta22KkGiHJDykCso3hSaoBPwAMP9NEem: {
+                         XRP: false,
+                         IOU: false
+                       },
+                       rExAPEZvbkZqYPuNcZ7XEBLENEshsWDQc8: {
+                         XRP: false,
+                         IOU: false
+                       }
+                     }
+
+
+var GATEWAYS = 
+   {
+      razqQKzJRdB4UxFPWf5NEpEG3WMkmwgcXA: "RippleChina",
+      rnuF96W4SZoCJmbHYBFoJZpR8eCaxNvekK: "RippleCN",
+      rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B: "BitStamp",
+      rMwjYedjc7qqtKYVLiAccJSmCwih4LnE2q: "SnapSwap",
+      rJHygWcTLVpSXkowott6kzgZU6viQSVYM1: "JustCoin",
+      rLEsXccBGNR3UPuPu2hUXPjziKC3qKSBun: "TheRock",
+      r9Dr5xwkeLegBeXq6ujinjSBLQzQ1zQGjH: "RippleSingapore",
+      rsP3mgGb2tcYUrxiLFiHJiQXhsziegtwBc: "Coinex"
+    }
+
+// ========================================================
+
+function balance_clear() {
+    for(var currency in BALANCE){
+      BALANCE[currency] = 0;
+    }
+}
+
+
+function balance_update_clear() {
+    for(var account in BALANCE_UPDATE){
+      BALANCE_UPDATE[account].XRP = false;
+      BALANCE_UPDATE[account].IOU = false;
+    }
+}
+
+function balances_updated() {
+  var updated = true;
+  for (var key in BALANCE_UPDATE) {
+    if (BALANCE_UPDATE[key].XRP == false) {updated = false;}
+    if (BALANCE_UPDATE[key].IOU == false) {updated = false;}
+  }
+  return updated;  
+}
+
+
+function set_command(ws_command, account){
+  var mycommand = { 
+                  "command": ws_command,
+                  "id": 0,
+                  "account": account,
+                  "ledger": LEDGER
+                }
+
+  var sendcommand = JSON.stringify(mycommand);
+
+  return sendcommand;
+}
+
+function get_balance(account, callback) {
+     balance_clear();
+     balance_update_clear();
+
+     output('getting accounts balances...');
+
+     var websocket = new WebSocket(RIPPLE_WS);
+
+     websocket.onopen = function(){
+           output('connected to Ripple Network via websocket...');
+
+           if (Array.isArray(account)){
+             for (i = 0; i < account.length; i++) {
+                websocket.send(set_command("account_lines", account[i]));
+                websocket.send(set_command("account_info", account[i]));
+             }
+           } else {  
+             websocket.send(set_command("account_lines",account));
+             websocket.send(set_command("account_info",account));
+ 	   }      
+
+     }
+
+     websocket.onerror = function(error){
+          output('ws error: ' + JSON.stringify(error));
+     }
+
+     websocket.onmessage = function(message){
+          //output(JSON.stringify(message));
+	  var msg = JSON.parse(message.data);
+
+	  if (msg.status == 'success') {
+              if (msg.result.account_data){
+                var account = msg.result.account_data.Account;
+                var xrpdrops = msg.result.account_data.Balance;   
+                var xrphuman = xrpdrops / 1000000 ;
+                BALANCE['XRP'] += xrphuman;
+                BALANCE_UPDATE[account].XRP = true;
+              }
+
+              if (msg.result.lines) {
+                var ioulist = msg.result.lines;
+                var account = msg.result.account;
+                BALANCE_UPDATE[account].IOU = true;
+                ioustats(ioulist);
+              }
+
+           } else {
+              output('error: ' + JSON.stringify(msg.error));
+              websocket.close();              
+           }
+
+           if (balances_updated()){
+              websocket.close();
+              //calculate_nav();              
+              if (typeof(callback) == 'function') {
+                callback();
+              }
+           } 
+
+     }
+	
+}
+
+function ioustats(hlist) {
+    for (i = 0; i < hlist.length; i++) {
+        if (BALANCE.hasOwnProperty(hlist[i].currency)) {        
+          BALANCE[hlist[i].currency] += parseFloat(hlist[i].balance)		
+        } 
+    }
+}
+
+function list_assets() {
+    output('Assets Stats from all accounts:')    
+    for(var currency in BALANCE){
+      if (currency != 'XMM') {
+        output(currency + ' = ' + BALANCE[currency]);
+      }
+    }
+}
+
+function calculate_nav() {
+    //list_assets();
+    output('Calculating NAV...');    
+    for(var currency in BALANCE){
+      if (BALANCE[currency]) {
+        NAV = NAV + BALANCE[currency] * RATES[currency]
+      }
+    }
+    var nav_per_xmm = -NAV/BALANCE['XMM'];
+    output('Total Asset =~ ' + NAV + ' XRP equivalent.')
+    output('Units in circulation = ' + (-BALANCE['XMM']) + ' XMM.')
+    output('NAV per XMM =~ ' + nav_per_xmm + ' XRP')
+    //output('ledger_index: ' + LEDGER)
+    show_nav(nav_per_xmm);
+}
+
+
+function rates_updated_clear() {
+  for (var currency in RATES_UPDATED) {
+    RATES_UPDATED[currency] = false;
+  }
+}
+
+function rates_updated () {
+  var updated = true;
+  for (var key in RATES_UPDATED) {
+    if (RATES_UPDATED[key] == false) {updated = false;}
+  }
+  return updated;  
+}
+
+function get_rates(callback) {
+  rates_updated_clear();
+  output('getting exchange-rates(1' + RANGE + ' average) from RippleCharts...');
+
+  var BODY = { pairs: [ 
+                 {
+                   base  : {
+                           currency: 'BTC',
+                           issuer: 'rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B'
+                           },
+                   counter : {currency:"XRP"}, 
+                 },
+                 {
+                   base  : {
+                           currency: 'USD',
+                           issuer: 'rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B'
+                           },
+                   counter : {currency:"XRP"}, 
+                 },
+                 {
+                   base  : {
+                           currency: 'CNY',
+                           issuer: 'razqQKzJRdB4UxFPWf5NEpEG3WMkmwgcXA'
+                           },
+                   counter: {currency:"XRP"}, 
+                 },
+
+/* // Not using rates in Ripple for low-volume currencies.
+                 {
+                   base  : {
+                           currency: 'EUR',
+                           issuer: 'rMwjYedjc7qqtKYVLiAccJSmCwih4LnE2q'
+                           },
+                   counter : {currency:"XRP"}, 
+                 },
+                 {
+                   base  : {
+                           currency: 'XAG',
+                           issuer: 'r9Dr5xwkeLegBeXq6ujinjSBLQzQ1zQGjH'
+                           },
+                   counter : {currency:"XRP"}, 
+                 }  
+*/
+               ],
+               range: RANGE 
+             };
+
+  var Request = new XMLHttpRequest();
+
+  Request.open('POST', 'http://api.ripplecharts.com/api/exchangerates');
+  Request.setRequestHeader('Content-Type', 'application/json');
+
+  Request.onreadystatechange = function () {
+    if (this.readyState === 4) {
+      var body = JSON.parse(this.responseText);
+      //output('Body: ' + body); 
+
+      if (body.error) {
+        output('rippledata error: ' + body.error);
+      }
+
+      for (var pair in body) {
+        if (body[pair].base && body[pair].rate) {
+          if (body[pair].counter.currency == 'XRP') {
+            var currency = body[pair].base.currency;
+            var issuer = body[pair].base.issuer;
+            var rate = body[pair].rate;
+            var rate_last = body[pair].last;
+            output('Average Price for ' + currency + '.' + GATEWAYS[issuer] + ' = ' + rate + ' XRP');
+            RATES[currency] = parseFloat(rate);
+            RATES_UPDATED[currency] = true;
+          }
+        }
+      }
+      
+      complete_rates();
+
+      if (rates_updated()) {
+          output('exchange-rates updated.')
+          //get_balance(ACCOUNTS);
+          if (typeof(callback) == 'function') {
+            callback();
+          }
+      } else {
+          output('failed to update all exchange-rates');
+      }
+
+    }
+  };
+
+  Request.send(JSON.stringify(BODY));
+  
+}
+
+function complete_rates() {
+  for (var currency in RATES_UPDATED) { 
+      if (RATES_UPDATED['USD'] == true && RATES_UPDATED[currency] == false) {
+        RATES[currency] = RATES['USD'] * PRICES[currency];
+        RATES_UPDATED[currency] = true;
+        output('Rates for ' + currency + ' = (USD * ' + PRICES[currency] + ') = ' + RATES[currency] + ' XRP');
+      }
+  }
+}
+
+
+
+// ============= main =======================================
+
+function output(inp) {
+    document.body.appendChild(document.createElement('pre')).innerHTML = inp;
+}
+
+function show_nav(nav) {
+   document.getElementById('nav').value = nav;
+}
+
+window.onload = function() {
+    var submitbutton = document.getElementById('submitbutton');
+    submitbutton.onclick = function() {calculate();};
+}
+
+function set_rates() {
+  PRICES['BTC'] = Number(document.getElementById('btc').value);
+  PRICES['CNY'] = Number(document.getElementById('cny').value);
+  PRICES['EUR'] = Number(document.getElementById('eur').value);
+  PRICES['NZD'] = Number(document.getElementById('nzd').value);
+  PRICES['XAG'] = Number(document.getElementById('xag').value);
+  PRICES['XAU'] = Number(document.getElementById('xau').value);
+}
+
+function calculate() {
+    set_rates();
+    get_balance(ACCOUNTS, function () {
+      list_assets();
+      get_rates(calculate_nav);
+    });
+}
+
+    </script>
+  </head>
+  <body>
+    <h1>XMM Value Estimation</h1>
+    Issuing Account   = rExAPEZvbkZqYPuNcZ7XEBLENEshsWDQc8<br>
+    Hotwallet Account = r4Ta22KkGiHJDykCso3hSaoBPwAMP9NEem<br>
+    Trading Account 1 = raudnGKfTK23YKfnS7ixejHrqGERTYNFXk<br>
+    Trading Account 2 = rajDteRmFXXs8ALEhfPpwMZy7QuW3o7MtE<br>
+    Trading Account 3 = rBwhtkgKgq7cDnMNUAK98LBV1eRXsC9yzs<br><br>
+    Exchange-Rates (/USD):<br>
+    BTC:<input id="btc" type=text value="590" size=2.5> 
+    CNY:<input id="cny" type=text value="0.160" size=2.5>
+    EUR:<input id="eur" type=text value="1.35" size=2.5>
+    NZD:<input id="nzd" type=text value="0.87" size=2.5>   
+    XAG:<input id="xag" type=text value="19.5" size=2.5>
+    XAU:<input id="xau" type=text value="1270" size=2.5><br>
+    <button id="submitbutton">Calculate NAV</button><br><br>
+    <strong>NAV per XMM = </strong> <input id="nav" type=text value="" size=5> XRP. <br>
+    -----------------------------------------------------
+  </body>
+</html>
