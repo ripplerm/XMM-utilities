@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>XMM Holder Stats</title>
+    <script src="ripple-0.7.35-min.js"></script>
+    <script>
+
+
+// =========== configuration ==============================
+
+var RIPPLE_WS = "wss://s1.ripple.com";
+
+var ADDRESS = "rExAPEZvbkZqYPuNcZ7XEBLENEshsWDQc8";
+var HOTWALLET = "r4Ta22KkGiHJDykCso3hSaoBPwAMP9NEem";
+var CURRENCY = 'XMM';
+
+var LEDGER = "validated" ; //e.g. 30-Apr= 6373950, 31-May= 6943500, 
+
+var LIST_ALL = false;
+
+
+// ========== functions ===============================
+
+function connect() {
+
+	websocket = new WebSocket('wss://s1.ripple.com');
+
+	mycommand = {"command":"account_lines","id":0,"account":ADDRESS,"ledger":LEDGER};
+	subscribecommand = JSON.stringify(mycommand);
+
+	websocket.onopen = function(){
+		output('connected to the Ripple network!');
+		websocket.send(subscribecommand);
+	}
+
+        websocket.onerror = function(error){
+            output('ws error: ' + JSON.stringify(error));
+        }
+
+	websocket.onmessage = function(message){
+		//output(JSON.stringify(message));
+		var msg = JSON.parse(message.data);
+
+		if (msg.status == 'success') {
+                    if (msg.result.lines) { 
+			var holderlist = msg.result.lines;
+			holderstats(holderlist);
+                    }
+		}
+		else {
+                   output('error: ' + JSON.stringify(msg.error));
+                }
+
+		websocket.close();
+	}
+	
+}
+
+function holderstats(hlist) {
+        //Filter with Currency.
+        hlist = hlist.filter(function(element){
+	    return (element.currency == CURRENCY && -element.balance > 0);
+        });
+
+        // Sort with ascending balance.
+        hlist.sort(function(a,b) { return parseFloat(b.balance) - parseFloat(a.balance) } );
+	
+        var TotalHolders = hlist.length;  
+        var BALANCE = 0;
+        var HOLDERSTATS = [0, 0, 0, 0, 0];
+
+        for (i = 0; i < hlist.length; i++) {
+                var holder_balance = - parseFloat(hlist[i].balance);
+
+		if (LIST_ALL) {
+		    output(hlist[i].account + ': ' + holder_balance);
+		}
+
+		if (hlist[i].account != HOTWALLET) {
+		    BALANCE = BALANCE + holder_balance;
+    
+                	if (holder_balance < 10) {
+                            HOLDERSTATS[0]++;
+			} else if (holder_balance < 100) {
+                            HOLDERSTATS[1]++;
+			} else if (holder_balance < 1000) {
+                            HOLDERSTATS[2]++;
+			} else if (holder_balance < 10000) {
+                            HOLDERSTATS[3]++;
+			} else {
+                            HOLDERSTATS[4]++;
+                        }
+
+		} else {
+                    TotalHolders -= 1; //exclude Hotwallet. 
+                }
+
+	}
+        output('Holder Stats:');
+        output('[0 - 10): ' + HOLDERSTATS[0]);
+        output('[10 - 100): ' + HOLDERSTATS[1]);
+        output('[100 - 1000): ' + HOLDERSTATS[2]);
+        output('[1000 - 10000): ' + HOLDERSTATS[3]);
+        output('[10000 - infinity): ' + HOLDERSTATS[4]);
+	output('Total Number of Holders: ' + TotalHolders);
+	output(CURRENCY + ' in circulation: ' + BALANCE);
+	output('ledger_index: ' + LEDGER);
+       
+}
+
+
+// ============= main =======================================
+
+function output(inp) {
+    document.body.appendChild(document.createElement('pre')).innerHTML = inp;
+}
+
+window.onload = function() {
+    var submitbutton = document.getElementById('submitbutton');
+    submitbutton.onclick = function() {show();};
+}
+
+
+function show () {
+    var ledger = parseInt(document.getElementById('ledger').value);
+    LEDGER = ledger? ledger : 'validated';
+
+    if (document.getElementById('listall').checked) {
+       LIST_ALL = true;
+    }
+
+    connect();
+}
+
+    </script>
+  </head>
+  <body>
+    <h1>XMM Holders Statistics</h1>
+    Issuing Account   = rExAPEZvbkZqYPuNcZ7XEBLENEshsWDQc8<br>
+    Hotwallet Account = r4Ta22KkGiHJDykCso3hSaoBPwAMP9NEem<br><br>
+    Ledger_index:<input id="ledger" type=text value="validated" size=5> <br>
+    (30th-Apr: 6373950, 31st-May: 6943500)<br><br>
+    
+    <button id="submitbutton">Stats</button><br>
+    <input id="listall" type=checkbox unchecked>List All Holders.<br>
+    -----------------------------------------------------
+  </body>
+</html>
