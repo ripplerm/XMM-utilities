@@ -234,7 +234,8 @@ function list_assets() {
 
 function calculate_nav() {
     //list_assets();
-    output('Calculating NAV...');    
+    output('Calculating NAV...');
+    NAV = 0;
     for(var currency in BALANCE){
       if (BALANCE[currency]) {
         NAV = NAV + BALANCE[currency] * RATES[currency]
