@@ -148,7 +148,7 @@ function traders_stats (traders) {
 }
 
 function get_market_traders () {
-  output('requsting data from RippleCharts...');
+  output('requesting data from RippleCharts...');
 
   var BODY = { 
         base: {
@@ -180,7 +180,7 @@ function get_market_traders () {
         var start_time = body.startTime.slice(0,19);
         var end_time = body.endTime.slice(0,19);
         var traders = body.results;  
-        output('Rage: ' + start_time + ' ~ ' + end_time);
+        output('Range: ' + start_time + ' ~ ' + end_time);
 
         traders_stats(traders);
       } 
@@ -195,7 +195,12 @@ function get_market_traders () {
 // ============= main =======================================
 
 function output(inp) {
-    document.body.appendChild(document.createElement('pre')).innerHTML = inp;
+    document.getElementById('consolelog').appendChild(document.createElement('pre')).innerHTML = inp;
+}
+
+function clear_output() {
+  document.getElementById('consolelog').innerHTML = '';
+  document.getElementById('xmm_share').innerHTML = '';
 }
 
 window.onload = function() {
@@ -264,7 +269,6 @@ function set_params() {
   else if (document.getElementById('3d').checked) {RANGE = '3d';}
   else if (document.getElementById('7d').checked) {RANGE = '7d';}
   LIST_TOP = (document.getElementById('listtop').checked) ? true : false;
-  document.getElementById('xmm_share').innerHTML = '';
 
   var start_time = document.getElementById('starttime').value;
   START_TIME = start_time? start_time : get_startTime(RANGE);
@@ -302,5 +306,6 @@ function start() {
     <strong>Volume from XMM's accounts = </strong><label id="xmm_share" type=text></label><br>
     * data from RippleCharts.com <br>
     =============================================================
+    <div id='consolelog'> </div>
   </body>
 </html>
